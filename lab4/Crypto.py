@@ -10,10 +10,10 @@ warnings.filterwarnings("ignore")
 
 
 def write_to_CSV(df):
-    if not os.path.isfile('ExecutionLog.csv'):
-        df.to_csv('ExecutionLog.csv')
+    if not os.path.isfile(os.getcwd()+'/lab4/ExecutionLog.csv'):
+        df.to_csv(os.getcwd()+'/lab4/ExecutionLog.csv')
     else:  # else it exists so append without writing the header
-        df.to_csv('ExecutionLog.csv', mode='a', header=False)
+        df.to_csv(os.getcwd()+'/lab4/ExecutionLog.csv', mode='a', header=False)
 
 
 def RSAKeyGenerate(keylen):
