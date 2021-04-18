@@ -1,26 +1,39 @@
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Cipher import AES, PKCS1_OAEP
+import time
+import os
+import warnings
+import pandas as pd
+import pathlib
+warnings.filterwarnings("ignore")
+
+
+def write_to_CSV(df):
+    if not os.path.isfile('ExecutionLog.csv'):
+        df.to_csv('ExecutionLog.csv')
+    else:  # else it exists so append without writing the header
+        df.to_csv('ExecutionLog.csv', mode='a', header=False)
 
 
 def RSAKeyGenerate(keylen):
     print("Generating keypair for keylength: ", keylen)
     keypair = RSA.generate(int(keylen))
     private_key = keypair.export_key()
-    file_out = open(
-        "/home/appledora/Documents/Security2/lab4/keys/private-"+str(keylen)+".pem", "wb")
+    file_out = open(str(os.getcwd())+"/lab4/keys/private-" +
+                    str(keylen)+".pem", "wb+")
     file_out.write(private_key)
     file_out.close()
 
     pubKey = keypair.publickey()
     # print(f"Public key:  (n={hex(pubKey.n)}, e={hex(pubKey.e)})")
     pubKeyPEM = pubKey.exportKey()
-    file_out = open(
-        "/home/appledora/Documents/Security2/lab4/keys/public-"+str(keylen)+".pem", "wb")
+    file_out = open(str(os.getcwd())+"/lab4/keys/public-" +
+                    str(keylen)+".pem", "wb+")
     file_out.write(pubKeyPEM)
     file_out.close()
 
-    print("Keys are stored in keys/ folder")
+    print("Keys are stored in ",  os.getcwd()+"/lab4/keys/ folder")
 
 
 def RSA_encryption(keylen, filename="Encrypted_data"):
@@ -48,29 +61,50 @@ def RSA_encryption(keylen, filename="Encrypted_data"):
     file_out.close()
     print("Encrypted ", filename+".bin saved in data/ folder")
 
-def RSA_decryption(keylen,filename):
+
+def RSA_decryption(keylen, filename):
     print("Starting Decryption of ", filename+".bin.....")
     file_in = open(
-        "/home/appledora/Documents/Security2/lab4/data/"+filename+".bin", "rb")
-    private_key = RSA.import_key(open("/home/appledora/Documents/Security2/lab4/keys/private-"+str(keylen)+".pem").read())
+        os.getcwd()+"/lab4/data/"+filename+".bin", "rb")
+    private_key = RSA.import_key(
+        open(os.getcwd()+"/lab4/keys/private-"+str(keylen)+".pem").read())
     enc_session_key, nonce, tag, ciphertext = \
-   [ file_in.read(x) for x in (private_key.size_in_bytes(), 16, 16, -1) ]
+        [file_in.read(x) for x in (private_key.size_in_bytes(), 16, 16, -1)]
     # Decrypt the session key with the private RSA key
     cipher_rsa = PKCS1_OAEP.new(private_key)
     session_key = cipher_rsa.decrypt(enc_session_key)
     # Decrypt the data with the AES session key
     cipher_aes = AES.new(session_key, AES.MODE_EAX, nonce)
     data = cipher_aes.decrypt_and_verify(ciphertext, tag)
-    print(data.decode("utf-8"))
+    print("Decrypted Plaintext: ", data.decode("utf-8"))
+
 
 def RSA_(keylen=1024):
     objType = int(
         input("Choose one of the options:\n1. Encrypt Data\n2. Deecrypt Data\n"))
     filename = input("Type file name for your encrypted data: ")
     if (objType == 1):
+        start_time = time.time()
         RSA_encryption(keylen, filename)
+        end_time = time.time() - start_time
+        df = pd.DataFrame.from_records([{
+            "type": "RSA_encryption",
+            "keyLen": int(keylen),
+            "filesize": os.path.getsize(os.getcwd()+"/lab4/data/"+filename+".bin"),
+            "time": end_time
+        }])
+        write_to_CSV(df)
     elif (objType == 2):
-        RSA_decryption(keylen,filename)
+        start_time = time.time()
+        RSA_decryption(keylen, filename)
+        end_time = time.time() - start_time
+        df = pd.DataFrame.from_records([{
+            "type": "RSA_decryption",
+            "keyLen": int(keylen),
+            "filesize": os.path.getsize(os.getcwd()+"/lab4/data/"+filename+".bin"),
+            "time": end_time
+        }])
+        write_to_CSV(df)
 
 
 def main():
