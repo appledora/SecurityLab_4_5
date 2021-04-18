@@ -8,7 +8,7 @@ def RSAKeyGenerate(keylen):
     keypair = RSA.generate(int(keylen))
     private_key = keypair.export_key()
     file_out = open(
-        "/home/appledora/Documents/Security2/lab4/keys/private.pem", "wb")
+        "/home/appledora/Documents/Security2/lab4/keys/private-"+str(keylen)+".pem", "wb")
     file_out.write(private_key)
     file_out.close()
 
@@ -16,7 +16,7 @@ def RSAKeyGenerate(keylen):
     # print(f"Public key:  (n={hex(pubKey.n)}, e={hex(pubKey.e)})")
     pubKeyPEM = pubKey.exportKey()
     file_out = open(
-        "/home/appledora/Documents/Security2/lab4/keys/public.pem", "wb")
+        "/home/appledora/Documents/Security2/lab4/keys/public-"+str(keylen)+".pem", "wb")
     file_out.write(pubKeyPEM)
     file_out.close()
 
@@ -35,7 +35,7 @@ def RSA_encryption(keylen, filename="Encrypted_data"):
     file_out = open(
         "/home/appledora/Documents/Security2/lab4/data/"+filename+".bin", "wb")
     recipient_key = RSA.import_key(
-        open("/home/appledora/Documents/Security2/lab4/keys/public.pem").read())
+        open("/home/appledora/Documents/Security2/lab4/keys/public-"+str(keylen)+".pem").read())
     session_key = get_random_bytes(16)
     # Encrypt the session key with the public RSA key
     cipher_rsa = PKCS1_OAEP.new(recipient_key)
@@ -48,13 +48,29 @@ def RSA_encryption(keylen, filename="Encrypted_data"):
     file_out.close()
     print("Encrypted ", filename+".bin saved in data/ folder")
 
+def RSA_decryption(keylen,filename):
+    print("Starting Decryption of ", filename+".bin.....")
+    file_in = open(
+        "/home/appledora/Documents/Security2/lab4/data/"+filename+".bin", "rb")
+    private_key = RSA.import_key(open("/home/appledora/Documents/Security2/lab4/keys/private-"+str(keylen)+".pem").read())
+    enc_session_key, nonce, tag, ciphertext = \
+   [ file_in.read(x) for x in (private_key.size_in_bytes(), 16, 16, -1) ]
+    # Decrypt the session key with the private RSA key
+    cipher_rsa = PKCS1_OAEP.new(private_key)
+    session_key = cipher_rsa.decrypt(enc_session_key)
+    # Decrypt the data with the AES session key
+    cipher_aes = AES.new(session_key, AES.MODE_EAX, nonce)
+    data = cipher_aes.decrypt_and_verify(ciphertext, tag)
+    print(data.decode("utf-8"))
 
 def RSA_(keylen=1024):
     objType = int(
-        input("Choose one of the options:\n1. Encrypt Data\n2. Deecrypt Data"))
+        input("Choose one of the options:\n1. Encrypt Data\n2. Deecrypt Data\n"))
     filename = input("Type file name for your encrypted data: ")
     if (objType == 1):
         RSA_encryption(keylen, filename)
+    elif (objType == 2):
+        RSA_decryption(keylen,filename)
 
 
 def main():
