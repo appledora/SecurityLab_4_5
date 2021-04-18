@@ -3,9 +3,9 @@ from Cryptodome.Random import get_random_bytes
 from Cryptodome.Cipher import AES, PKCS1_OAEP
 import time
 import os
-import warnings
 import pandas as pd
-import pathlib
+import matplotlib.pyplot as plt
+import warnings
 warnings.filterwarnings("ignore")
 
 
@@ -14,6 +14,36 @@ def write_to_CSV(df):
         df.to_csv(os.getcwd()+'/lab4/ExecutionLog.csv')
     else:  # else it exists so append without writing the header
         df.to_csv(os.getcwd()+'/lab4/ExecutionLog.csv', mode='a', header=False)
+
+
+def plot_data(logtype):
+    print(logtype, type(logtype))
+    filename = input("Type a name for the plot: ")
+    if (os.path.exists(os.getcwd()+"/lab4/ExecutionLog.csv")):
+        df = pd.read_csv(os.getcwd()+"/lab4/ExecutionLog.csv")
+        # df = df[]
+        df = df[df['type'].astype("string").str.contains(logtype)]
+        # print(df.to_markdown())
+        df_pivot = pd.pivot_table(
+            df,
+            index="type",
+            columns="keyLen",
+            values=["filesize", "time"],
+        )
+        # Plot a bar chart using the DF
+        ax = df_pivot.plot(kind="bar")
+        ax.set_yscale("log")
+        # Get a Matplotlib figure from the axes object for formatting purposes
+        fig = ax.get_figure()
+        # Change the plot dimensions (width, height)
+        fig.set_size_inches(7, 6)
+        plt.xticks(rotation=0)
+        plt.savefig(os.getcwd()+"/lab4/plots/"+filename+".png")
+
+        plt.show()
+
+    else:
+        print("No pre-existing data.")
 
 
 def RSAKeyGenerate(keylen):
@@ -81,7 +111,7 @@ def RSA_decryption(keylen, filename):
 
 def RSA_(keylen=1024):
     objType = int(
-        input("Choose one of the options:\n1. Encrypt Data\n2. Deecrypt Data\n"))
+        input("Choose one of the options:\n1. Encrypt Data\n2. Decrypt Data"))
     filename = input("Type file name for your encrypted data: ")
     if (objType == 1):
         start_time = time.time()
@@ -108,7 +138,7 @@ def RSA_(keylen=1024):
 
 
 def main():
-    print("Select Action:\n1. AES encryption/decryption\n2. RSA encryption/decryption\n3. RSA Signature\n4. SHA-256 Hashing")
+    print("Select Action:\n1. AES encryption/decryption\n2. RSA encryption/decryption\n3. RSA Signature\n4. SHA-256 Hashing\n5. Plot Data(if exists)")
     objType = int(input())
     if(objType == 1):
         print("AES")
@@ -130,6 +160,14 @@ def main():
         print("RSA Signature")
     elif(objType == 4):
         print("SHA-256")
+    elif (objType == 5):
+        logtype = int(input("Choose a logging type :\n1. AES\n2. RSA\n"))
+        log = ""
+        if(logtype == 1):
+            log = "AES"
+        elif(logtype == 2):
+            log == "RSA"
+        plot_data(log)
 
 
 if __name__ == "__main__":
