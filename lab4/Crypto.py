@@ -7,6 +7,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import warnings
 warnings.filterwarnings("ignore")
+'''
+source : https://pycryptodome.readthedocs.io/en/latest/src/examples.html#generate-public-key-and-private-key
+'''
 
 
 def write_to_CSV(df):
@@ -111,7 +114,7 @@ def RSA_decryption(keylen, filename):
 
 def RSA_(keylen=1024):
     objType = int(
-        input("Choose one of the options:\n1. Encrypt Data\n2. Decrypt Data"))
+        input("Choose one of the options:\n1. Encrypt Data\n2. Decrypt Data\n"))
     filename = input("Type file name for your encrypted data: ")
     if (objType == 1):
         start_time = time.time()
