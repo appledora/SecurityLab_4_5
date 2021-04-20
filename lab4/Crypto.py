@@ -19,7 +19,7 @@ def write_to_CSV(df):
         df.to_csv(os.getcwd()+'/lab4/ExecutionLog.csv', mode='a', header=False)
 
 
-def plot_data(logtype):
+def plot_data(logtype="RSA"):
     print(logtype, type(logtype))
     filename = input("Type a name for the plot: ")
     if (os.path.exists(os.getcwd()+"/lab4/ExecutionLog.csv")):
@@ -47,6 +47,7 @@ def plot_data(logtype):
 
     else:
         print("No pre-existing data.")
+        main()
 
 
 def RSAKeyGenerate(keylen):
