@@ -48,7 +48,7 @@ def plot_data(logtype="RSA"):
         # Change the plot dimensions (width, height)
         fig.set_size_inches(7, 6)
         plt.xticks(rotation=0)
-        plt.savefig(os.getcwd()+"/lab4/plots/"+filename+".png")
+        plt.savefig(os.getcwd()+"/lab4/plots/"+filename+"-"+logtype+".png")
 
         plt.show()
 
@@ -191,14 +191,9 @@ def AES_decryption(keylen, filename, mode):
     with open(json_file_path) as f:
         bb = json.load(f)
     b64 = json.loads(bb)
-
-    modeType = int(input("Pick a mode for AES :\n1. ECB\n2. CFB\n"))
-    mode = None
-    if (modeType == 1):
-        mode = AES.MODE_ECB
+    if (mode == AES.MODE_ECB):
         cipher = AES.new(key_in, mode)
-    else:
-        mode = AES.MODE_CFB
+    elif (mode == AES.MODE_CFB):
         iv = b64decode(b64["iv"])
         cipher = AES.new(key_in, mode, iv=iv)
 
