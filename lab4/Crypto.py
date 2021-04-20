@@ -7,6 +7,8 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 from base64 import b64encode, b64decode
+from Cryptodome.Util.Padding import pad, unpad
+
 import json
 import warnings
 warnings.filterwarnings("ignore")
@@ -146,7 +148,8 @@ def RSA_(keylen=1024):
 
 def AES_key_generation(keylen):
     key = get_random_bytes(keylen)
-    modeType = int(input("Pick a mode for AES :\n1. ECB\n2. CFB\n"))
+    modeType = int(
+        input("Pick a mode for AES key generation :\n1. ECB\n2. CFB\n"))
     mode = None
     if (modeType == 1):
         mode = AES.MODE_ECB
@@ -159,17 +162,26 @@ def AES_key_generation(keylen):
                     str(keylen)+".bin", "wb")  # wb = write bytes
     file_out.write(key)
     file_out.close()
-    return cipher
+    return cipher, mode
 
 
 def AES_encryption(keylen, filename, data):
-    cipher = AES_key_generation(keylen)  # in byte
-    print("Starting Encryption using ", keylen, "-bit key .....")
-    ct_bytes = cipher.encrypt(data.encode("utf-8"))
-    iv = b64encode(cipher.iv).decode('utf-8')
-    ct = b64encode(ct_bytes).decode('utf-8')
-    result = json.dumps({'iv': iv, 'ciphertext': ct})
-    print(result)
+    BLOCK_SIZE = 32
+    cipher, mode = AES_key_generation(keylen)  # in byte
+    print("Starting Encryption using ", keylen, "-bit key in mode ", mode)
+    if (mode == AES.MODE_ECB):
+        ct_bytes = cipher.encrypt(pad(data.encode("utf-8"), BLOCK_SIZE))
+        ct = b64encode(ct_bytes).decode('utf-8')
+        result = json.dumps({"ciphertext": ct})
+    elif (mode == AES.MODE_CFB):
+        mode = AES.MODE_CFB
+        ct_bytes = cipher.encrypt(data.encode("utf-8"))
+        iv = b64encode(cipher.iv).decode('utf-8')
+        ct = b64encode(ct_bytes).decode('utf-8')
+        result = json.dumps({'iv': iv, 'ciphertext': ct})
+        print(result)
+    print("Generating cipher object in mode : ", mode)
+
     with open(
             os.getcwd()+"/lab4/data/"+filename+".json", "w") as f:
         json.dump(result, f)
@@ -185,16 +197,19 @@ def AES_decryption(keylen, filename):
     with open(json_file_path) as f:
         bb = json.load(f)
     b64 = json.loads(bb)
-    iv = b64decode(b64["iv"])
-    ct = b64decode(b64["ciphertext"])
+
     modeType = int(input("Pick a mode for AES :\n1. ECB\n2. CFB\n"))
     mode = None
     if (modeType == 1):
         mode = AES.MODE_ECB
+        cipher = AES.new(key_in, mode)
     else:
         mode = AES.MODE_CFB
+        iv = b64decode(b64["iv"])
+        cipher = AES.new(key_in, mode, iv=iv)
+
+    ct = b64decode(b64["ciphertext"])
     print("Generating cipher object in mode : ", mode)
-    cipher = AES.new(key_in, mode, iv=iv)
     pt = cipher.decrypt(ct)
     print("The message was: ", pt)
 
@@ -213,7 +228,7 @@ def AES_(keylen=128):
         df = pd.DataFrame.from_records([{
             "type": "AES_Encryption",
             "keyLen": int(keylen),
-            "filesize": os.path.getsize(os.getcwd()+"/lab4/data/"+filename+".bin"),
+            "filesize": os.path.getsize(os.getcwd()+"/lab4/data/"+filename+".json"),
             "time": end_time
         }])
         write_to_CSV(df)
@@ -225,7 +240,7 @@ def AES_(keylen=128):
         df = pd.DataFrame.from_records([{
             "type": "AES_decryption",
             "keyLen": int(keylen),
-            "filesize": os.path.getsize(os.getcwd()+"/lab4/data/"+filename+".bin"),
+            "filesize": os.path.getsize(os.getcwd()+"/lab4/data/"+filename+".json"),
             "time": end_time
         }])
         write_to_CSV(df)
