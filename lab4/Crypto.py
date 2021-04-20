@@ -1,10 +1,13 @@
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Cipher import AES, PKCS1_OAEP
+from Cryptodome.Cipher import AES
 import time
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
+from base64 import b64encode, b64decode
+import json
 import warnings
 warnings.filterwarnings("ignore")
 '''
@@ -80,9 +83,9 @@ def RSA_encryption(keylen, filename="Encrypted_data"):
     The session key can then be used to encrypt all the actual data.
     """
     file_out = open(
-        "/home/appledora/Documents/Security2/lab4/data/"+filename+".bin", "wb")
+        os.getcwd()+"/lab4/data/"+filename+".bin", "wb")
     recipient_key = RSA.import_key(
-        open("/home/appledora/Documents/Security2/lab4/keys/public-"+str(keylen)+".pem").read())
+        open(os.getcwd()+"/lab4/keys/public-"+str(keylen)+".pem").read())
     session_key = get_random_bytes(16)
     # Encrypt the session key with the public RSA key
     cipher_rsa = PKCS1_OAEP.new(recipient_key)
@@ -141,11 +144,110 @@ def RSA_(keylen=1024):
         write_to_CSV(df)
 
 
+def AES_key_generation(keylen):
+    key = get_random_bytes(keylen)
+    modeType = int(input("Pick a mode for AES :\n1. ECB\n2. CFB\n"))
+    mode = None
+    if (modeType == 1):
+        mode = AES.MODE_ECB
+    else:
+        mode = AES.MODE_CFB
+    print("Generating cipher object in mode : ", mode)
+    # Create a AES cipher object with the key using the mode
+    cipher = AES.new(key, mode)
+    file_out = open(os.getcwd()+"/lab4/keys/AESKey-" +
+                    str(keylen)+".bin", "wb")  # wb = write bytes
+    file_out.write(key)
+    file_out.close()
+    return cipher
+
+
+def AES_encryption(keylen, filename, data):
+    cipher = AES_key_generation(keylen)  # in byte
+    print("Starting Encryption using ", keylen, "-bit key .....")
+    ct_bytes = cipher.encrypt(data.encode("utf-8"))
+    iv = b64encode(cipher.iv).decode('utf-8')
+    ct = b64encode(ct_bytes).decode('utf-8')
+    result = json.dumps({'iv': iv, 'ciphertext': ct})
+    print(result)
+    with open(
+            os.getcwd()+"/lab4/data/"+filename+".json", "w") as f:
+        json.dump(result, f)
+
+
+def AES_decryption(keylen, filename):
+    print("Starting Decryption of ", filename+".json.....")
+
+    key_in = open(os.getcwd()+"/lab4/keys/AESKey-" +
+                  str(keylen)+".bin", "rb").read()
+    print("key_in:\n", key_in)
+    json_file_path = os.getcwd()+"/lab4/data/"+filename+".json"
+    with open(json_file_path) as f:
+        bb = json.load(f)
+    b64 = json.loads(bb)
+    iv = b64decode(b64["iv"])
+    ct = b64decode(b64["ciphertext"])
+    modeType = int(input("Pick a mode for AES :\n1. ECB\n2. CFB\n"))
+    mode = None
+    if (modeType == 1):
+        mode = AES.MODE_ECB
+    else:
+        mode = AES.MODE_CFB
+    print("Generating cipher object in mode : ", mode)
+    cipher = AES.new(key_in, mode, iv=iv)
+    pt = cipher.decrypt(ct)
+    print("The message was: ", pt)
+
+
+def AES_(keylen=128):
+    objType = int(
+        input("Choose one of the options:\n1. Encrypt Data\n2. Decrypt Data\n"))
+    filename = input("Type file name for your encrypted data: ")
+    if (objType == 1):
+        data = input("Type your plaintext data:")
+        start_time = time.time()
+        AES_encryption(keylen, filename, data)
+        end_time = time.time() - start_time
+        print("Endtime: ", end_time)
+
+        df = pd.DataFrame.from_records([{
+            "type": "AES_Encryption",
+            "keyLen": int(keylen),
+            "filesize": os.path.getsize(os.getcwd()+"/lab4/data/"+filename+".bin"),
+            "time": end_time
+        }])
+        write_to_CSV(df)
+    elif (objType == 2):
+        start_time = time.time()
+        AES_decryption(keylen, filename)
+        end_time = time.time() - start_time
+        print("Endtime: ", end_time)
+        df = pd.DataFrame.from_records([{
+            "type": "AES_decryption",
+            "keyLen": int(keylen),
+            "filesize": os.path.getsize(os.getcwd()+"/lab4/data/"+filename+".bin"),
+            "time": end_time
+        }])
+        write_to_CSV(df)
+
+
 def main():
     print("Select Action:\n1. AES encryption/decryption\n2. RSA encryption/decryption\n3. RSA Signature\n4. SHA-256 Hashing\n5. Plot Data(if exists)")
     objType = int(input())
     if(objType == 1):
-        print("AES")
+        print("Starting AES encryption/decryption ....")
+        key = int(
+            input("Pick one of the keylengths :\n1. 128\n2. 256\n3. 512\n"))
+        if (key == 1):
+            keylen = 16
+        elif (key == 2):
+            keylen = 32
+        elif (key == 3):
+            keylen = 64
+        else:
+            print("Only option 1 , 2 or 3 is accepted.")
+            main()
+        AES_(keylen)
     elif(objType == 2):
         print("Starting RSA encryption/decryption ....")
         key = int(
