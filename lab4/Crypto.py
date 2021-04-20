@@ -20,20 +20,19 @@ https://pycryptodome.readthedocs.io/en/latest/src/cipher/classic.html
 
 
 def write_to_CSV(df):
-    if not os.path.isfile(os.getcwd()+'/lab4/ExecutionLog.csv'):
-        df.to_csv(os.getcwd()+'/lab4/ExecutionLog.csv')
+    if not os.path.isfile('ExecutionLog.csv'):
+        df.to_csv('ExecutionLog.csv')
     else:  # else it exists so append without writing the header
-        df.to_csv(os.getcwd()+'/lab4/ExecutionLog.csv', mode='a', header=False)
+        df.to_csv('ExecutionLog.csv', mode='a', header=False)
 
 
 def plot_data(logtype="RSA"):
-    print(logtype, type(logtype))
+    print(logtype)
     filename = input("Type a name for the plot: ")
-    if (os.path.exists(os.getcwd()+"/lab4/ExecutionLog.csv")):
-        df = pd.read_csv(os.getcwd()+"/lab4/ExecutionLog.csv")
-        # df = df[]
+    if (os.path.exists("ExecutionLog.csv")):
+        df = pd.read_csv("ExecutionLog.csv")
         df = df[df['type'].astype("string").str.contains(logtype)]
-        # print(df.to_markdown())
+        
         df_pivot = pd.pivot_table(
             df,
             index="type",
@@ -48,7 +47,7 @@ def plot_data(logtype="RSA"):
         # Change the plot dimensions (width, height)
         fig.set_size_inches(7, 6)
         plt.xticks(rotation=0)
-        plt.savefig(os.getcwd()+"/lab4/plots/"+filename+"-"+logtype+".png")
+        plt.savefig("plots/"+filename+"-"+logtype+".png")
 
         plt.show()
 
@@ -75,6 +74,38 @@ def RSAKeyGenerate(keylen):
     file_out.close()
 
     print("Keys are stored in ",  os.getcwd()+"/lab4/keys/ folder")
+
+
+def RSAKeyGen(keylen):
+    private_path = os.path.join('keys', f'rsa_{keylen}_private.pem')
+    public_path = os.path.join('keys', f'rsa_{keylen}_public.pem')
+
+    if os.path.exists(private_path) and os.path.exists(public_path):
+        print(f"Using previously generated key found in: {private_path}, {public_path}")
+        
+        with open(private_path, 'r') as pri_read:
+            private_key = RSA.import_key(pri_read.read())
+        with open(public_path, 'r') as pub_read:
+            public_key = RSA.import_key(pub_read.read())
+        
+        return private_key, public_key
+
+
+    print("Generating first-time keypair for keylength: ", keylen)
+
+    private_key = RSA.generate(int(keylen))
+    public_key = private_key.publickey()
+
+    with open(private_path, 'wb') as pri_write:
+        pri_write.write(private_key.export_key('PEM'))
+
+    with open(public_path, 'wb') as pub_write:
+        pub_write.write(public_key.export_key('PEM'))
+    
+
+    print("Keys are stored in : ",  private_path, public_path)
+
+    return private_key, public_key
 
 
 def RSA_encryption(keylen, filename="Encrypted_data"):
@@ -224,7 +255,7 @@ def AES_(keylen=128):
         df = pd.DataFrame.from_records([{
             "type": "AES_Encryption",
             "keyLen": int(keylen),
-            "filesize": os.path.getsize(os.getcwd()+"/lab4/data/"+filename+".json"),
+            "filesize": os.path.getsize("data/"+filename+".json"),
             "time": end_time
         }])
         write_to_CSV(df)
@@ -236,7 +267,7 @@ def AES_(keylen=128):
         df = pd.DataFrame.from_records([{
             "type": "AES_decryption",
             "keyLen": int(keylen),
-            "filesize": os.path.getsize(os.getcwd()+"/lab4/data/"+filename+".json"),
+            "filesize": os.path.getsize("data/"+filename+".json"),
             "time": end_time
         }])
         write_to_CSV(df)
@@ -260,6 +291,84 @@ def SHA256():
     print(f"SHA256 Hash for {filename} : ", sha256_hash.hexdigest())
     print(f"Completed in : {end_time} seconds.")
 
+
+
+from Cryptodome import Hash
+from Cryptodome.Signature.pkcs1_15 import PKCS115_SigScheme
+
+def _generate_rsa_signature(filename, keylen):
+
+    private_key, public_key = RSAKeyGen(keylen)
+
+    with open(filename, mode='rb') as file:
+        file_content = file.read()
+
+    hash = Hash.SHA256.new(file_content)
+    signer = PKCS115_SigScheme(private_key)
+    signature = signer.sign(hash)
+
+    with open(filename.rsplit('.',1)[0]+f"_sig_{keylen}.bin", mode='wb') as sigfile:
+        sigfile.write(signature)
+    print(f"Saved signature in: {filename.rsplit('.',1)[0]+f'_sig_{keylen}.bin'}")
+
+
+def _verify_rsa_signature(filename, signature_name, keylen):
+
+    public_path = os.path.join('keys', f'rsa_{keylen}_public.pem')
+    if not os.path.exists(public_path):
+        print(f"{public_path} does not exist. Make sure the key that was used to generate signature exists.")
+        return
+
+    private_key, public_key = RSAKeyGen(keylen)
+
+    with open(filename, mode='rb') as file:
+        file_content = file.read()
+    with open(signature_name, mode='rb') as sig:
+        signature = sig.read()
+
+    hash = Hash.SHA256.new(file_content)
+    verifier = PKCS115_SigScheme(public_key)
+    try:
+        verifier.verify(hash, signature)
+        print("Signature is valid.")
+    except:
+        print("Signature is invalid. Either signature is invalid or key is different.")
+    
+
+def RSA_Signature():
+    print("\nSelect Action:\n1. Generate signature for a file.\n2. Verify signature.")
+    objType = int(input("Enter Option: "))
+
+    if(objType == 1):
+        filename = input("Enter path to input filename: ")
+        keylen = int(input("Enter keylen (1024, 2048 or 4096): "))
+
+        start_time = time.time()
+        _generate_rsa_signature(filename, keylen)
+        end_time = time.time() - start_time
+        df = pd.DataFrame.from_records([{
+            "type": "Signature",
+            "keyLen": int(keylen),
+            "filesize": os.path.getsize(filename.rsplit('.',1)[0]+f"_sig_{keylen}.bin"),
+            "time": end_time
+        }])
+        write_to_CSV(df)
+    elif(objType == 2):
+        filename = input("Enter path to input filename: ")
+        signature_name = input("Enter path to signature file: ")
+        keylen = int(input("Enter keylen used to generate signature (1024, 2048 or 4096): "))
+
+        start_time = time.time()
+        _verify_rsa_signature(filename, signature_name, keylen)
+        end_time = time.time() - start_time
+        df = pd.DataFrame.from_records([{
+            "type": "Signature_Verification",
+            "keyLen": int(keylen),
+            "filesize": os.path.getsize(signature_name),
+            "time": end_time
+        }])
+        write_to_CSV(df)
+    
 
 def main():
     print("Select Action:\n1. AES encryption/decryption\n2. RSA encryption/decryption\n3. RSA Signature\n4. SHA-256 Hashing\n5. Plot Data(if exists)")
@@ -293,18 +402,29 @@ def main():
             main()
         RSA_(keylen)
     elif(objType == 3):
-        print("RSA Signature")
+        RSA_Signature()
     elif(objType == 4):
         SHA256()
     elif (objType == 5):
-        logtype = int(input("Choose a logging type :\n1. AES\n2. RSA\n"))
-        log = ""
+        logtype = int(input("Choose a logging type :\n1. AES\n2. RSA\n3. RSA Signature\nEnter: "))
         if(logtype == 1):
-            log = "AES"
+            plot_data("AES")
         elif(logtype == 2):
-            log == "RSA"
-        plot_data(log)
+            plot_data("RSA")
+        elif(logtype == 3):
+            plot_data("Signature")
 
 
 if __name__ == "__main__":
     main()
+
+# hash = Hash.SHA256.new(b"abcd")
+# private_key, public_key = RSAKeyGen(1024)
+# signer = PKCS115_SigScheme(private_key)
+# signature = signer.sign(hash)
+# print(signature)
+# print("a/b/ab.cdf".rsplit('.',1))
+
+
+
+
