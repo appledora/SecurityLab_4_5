@@ -141,9 +141,26 @@ def RSA_(keylen=1024):
         write_to_CSV(df)
 
 
+import hashlib
+def SHA256():
+    """
+    Input : path to file for hashing
+    Output: SHA256 generated hash
+    """
+    filename = input("Enter the input filename: ")
+    sha256_hash = hashlib.sha256()
+    with open(filename,"rb") as f:
+        # Read and update hash string value in blocks of 4K
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
+
+    print(f"SHA256 Hash for {filename} : ", sha256_hash.hexdigest())
+
+
+
 def main():
     print("Select Action:\n1. AES encryption/decryption\n2. RSA encryption/decryption\n3. RSA Signature\n4. SHA-256 Hashing\n5. Plot Data(if exists)")
-    objType = int(input())
+    objType = int(input("Enter Option: "))
     if(objType == 1):
         print("AES")
     elif(objType == 2):
@@ -163,7 +180,7 @@ def main():
     elif(objType == 3):
         print("RSA Signature")
     elif(objType == 4):
-        print("SHA-256")
+        SHA256()
     elif (objType == 5):
         logtype = int(input("Choose a logging type :\n1. AES\n2. RSA\n"))
         log = ""
