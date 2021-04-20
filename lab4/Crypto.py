@@ -1,14 +1,21 @@
+import hashlib
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Cipher import AES, PKCS1_OAEP
+from Cryptodome.Cipher import AES
 import time
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
+from base64 import b64encode, b64decode
+from Cryptodome.Util.Padding import pad, unpad
+
+import json
 import warnings
 warnings.filterwarnings("ignore")
 '''
 source : https://pycryptodome.readthedocs.io/en/latest/src/examples.html#generate-public-key-and-private-key
+https://pycryptodome.readthedocs.io/en/latest/src/cipher/classic.html
 '''
 
 
@@ -41,7 +48,7 @@ def plot_data(logtype="RSA"):
         # Change the plot dimensions (width, height)
         fig.set_size_inches(7, 6)
         plt.xticks(rotation=0)
-        plt.savefig(os.getcwd()+"/lab4/plots/"+filename+".png")
+        plt.savefig(os.getcwd()+"/lab4/plots/"+filename+"-"+logtype+".png")
 
         plt.show()
 
@@ -112,9 +119,9 @@ def RSA_encryption(keylen, filename="Encrypted_data"):
     The session key can then be used to encrypt all the actual data.
     """
     file_out = open(
-        "/home/appledora/Documents/Security2/lab4/data/"+filename+".bin", "wb")
+        os.getcwd()+"/lab4/data/"+filename+".bin", "wb")
     recipient_key = RSA.import_key(
-        open("/home/appledora/Documents/Security2/lab4/keys/public-"+str(keylen)+".pem").read())
+        open(os.getcwd()+"/lab4/keys/public-"+str(keylen)+".pem").read())
     session_key = get_random_bytes(16)
     # Encrypt the session key with the public RSA key
     cipher_rsa = PKCS1_OAEP.new(recipient_key)
@@ -173,7 +180,100 @@ def RSA_(keylen=1024):
         write_to_CSV(df)
 
 
-import hashlib
+def AES_key_generation(keylen, mode):
+    key = get_random_bytes(keylen)
+    print("Generating cipher object in mode : ", str(mode))
+    # Create a AES cipher object with the key using the mode
+    cipher = AES.new(key, mode)
+    file_out = open(os.getcwd()+"/lab4/keys/AESKey-" +
+                    str(keylen)+"-"+str(mode)+".bin", "wb")  # wb = write bytes
+    file_out.write(key)
+    file_out.close()
+    return cipher
+
+
+def AES_encryption(keylen, filename, data, mode):
+    BLOCK_SIZE = 32
+    cipher = AES_key_generation(keylen, mode)  # in byte
+    print("Starting Encryption using ", keylen, "-bit key in mode ", str(mode))
+    if (mode == AES.MODE_ECB):
+        ct_bytes = cipher.encrypt(pad(data.encode("utf-8"), BLOCK_SIZE))
+        ct = b64encode(ct_bytes).decode('utf-8')
+        result = json.dumps({"ciphertext": ct})
+    elif (mode == AES.MODE_CFB):
+        mode = AES.MODE_CFB
+        ct_bytes = cipher.encrypt(data.encode("utf-8"))
+        iv = b64encode(cipher.iv).decode('utf-8')
+        ct = b64encode(ct_bytes).decode('utf-8')
+        result = json.dumps({'iv': iv, 'ciphertext': ct})
+        print(result)
+    print("Generating cipher object in mode : ", mode)
+
+    with open(
+            os.getcwd()+"/lab4/data/"+filename+".json", "w") as f:
+        json.dump(result, f)
+
+
+def AES_decryption(keylen, filename, mode):
+    print("Starting Decryption of ", filename+".json.....")
+    key_in = open(os.getcwd()+"/lab4/keys/AESKey-" +
+                  str(keylen)+"-"+str(mode)+".bin", "rb").read()
+    print("key_in:\n", key_in)
+    json_file_path = os.getcwd()+"/lab4/data/"+filename+".json"
+    with open(json_file_path) as f:
+        bb = json.load(f)
+    b64 = json.loads(bb)
+    if (mode == AES.MODE_ECB):
+        cipher = AES.new(key_in, mode)
+    elif (mode == AES.MODE_CFB):
+        iv = b64decode(b64["iv"])
+        cipher = AES.new(key_in, mode, iv=iv)
+
+    ct = b64decode(b64["ciphertext"])
+    print("Generating cipher object in mode : ", mode)
+    pt = cipher.decrypt(ct)
+    print("The message was: ", pt)
+
+
+def AES_(keylen=128):
+    objType = int(
+        input("Choose one of the options:\n1. Encrypt Data\n2. Decrypt Data\n"))
+    filename = input("Type file name for your encrypted data: ")
+    modeType = int(
+        input("Pick a mode for AES key generation :\n1. ECB\n2. CFB\n"))
+    mode = None
+    if (modeType == 1):
+        mode = AES.MODE_ECB
+    else:
+        mode = AES.MODE_CFB
+    if (objType == 1):
+        data = input("Type your plaintext data:")
+        start_time = time.time()
+        AES_encryption(keylen, filename, data, mode)
+        end_time = time.time() - start_time
+        print("Endtime: ", end_time)
+
+        df = pd.DataFrame.from_records([{
+            "type": "AES_Encryption",
+            "keyLen": int(keylen),
+            "filesize": os.path.getsize(os.getcwd()+"/lab4/data/"+filename+".json"),
+            "time": end_time
+        }])
+        write_to_CSV(df)
+    elif (objType == 2):
+        start_time = time.time()
+        AES_decryption(keylen, filename, mode)
+        end_time = time.time() - start_time
+        print("Endtime: ", end_time)
+        df = pd.DataFrame.from_records([{
+            "type": "AES_decryption",
+            "keyLen": int(keylen),
+            "filesize": os.path.getsize(os.getcwd()+"/lab4/data/"+filename+".json"),
+            "time": end_time
+        }])
+        write_to_CSV(df)
+
+
 def SHA256():
     """
     Input : path to file for hashing
@@ -183,7 +283,7 @@ def SHA256():
     start_time = time.time()
 
     sha256_hash = hashlib.sha256()
-    with open(filename,"rb") as f:
+    with open(filename, "rb") as f:
         # Read and update hash string value in blocks of 4K
         for byte_block in iter(lambda: f.read(4096), b""):
             sha256_hash.update(byte_block)
@@ -264,7 +364,19 @@ def main():
     print("Select Action:\n1. AES encryption/decryption\n2. RSA encryption/decryption\n3. RSA Signature\n4. SHA-256 Hashing\n5. Plot Data(if exists)")
     objType = int(input("Enter Option: "))
     if(objType == 1):
-        print("AES")
+        print("Starting AES encryption/decryption ....")
+        key = int(
+            input("Pick one of the keylengths :\n1. 128\n2. 192\n3. 256\n"))
+        if (key == 1):
+            keylen = 16
+        elif (key == 2):
+            keylen = 24
+        elif (key == 3):
+            keylen = 32
+        else:
+            print("Only option 1 , 2 or 3 is accepted.")
+            main()
+        AES_(keylen)
     elif(objType == 2):
         print("Starting RSA encryption/decryption ....")
         key = int(
