@@ -27,13 +27,12 @@ def write_to_CSV(df):
 
 
 def plot_data(logtype="RSA"):
-    print(logtype, type(logtype))
+    print(logtype)
     filename = input("Type a name for the plot: ")
-    if (os.path.exists(os.getcwd()+"/lab4/ExecutionLog.csv")):
-        df = pd.read_csv(os.getcwd()+"/lab4/ExecutionLog.csv")
-        # df = df[]
+    if (os.path.exists("ExecutionLog.csv")):
+        df = pd.read_csv("ExecutionLog.csv")
         df = df[df['type'].astype("string").str.contains(logtype)]
-        # print(df.to_markdown())
+        
         df_pivot = pd.pivot_table(
             df,
             index="type",
@@ -48,7 +47,7 @@ def plot_data(logtype="RSA"):
         # Change the plot dimensions (width, height)
         fig.set_size_inches(7, 6)
         plt.xticks(rotation=0)
-        plt.savefig(os.getcwd()+"/lab4/plots/"+filename+"-"+logtype+".png")
+        plt.savefig("plots/"+filename+"-"+logtype+".png")
 
         plt.show()
 
@@ -256,7 +255,7 @@ def AES_(keylen=128):
         df = pd.DataFrame.from_records([{
             "type": "AES_Encryption",
             "keyLen": int(keylen),
-            "filesize": os.path.getsize(os.getcwd()+"/lab4/data/"+filename+".json"),
+            "filesize": os.path.getsize("data/"+filename+".json"),
             "time": end_time
         }])
         write_to_CSV(df)
@@ -268,7 +267,7 @@ def AES_(keylen=128):
         df = pd.DataFrame.from_records([{
             "type": "AES_decryption",
             "keyLen": int(keylen),
-            "filesize": os.path.getsize(os.getcwd()+"/lab4/data/"+filename+".json"),
+            "filesize": os.path.getsize("data/"+filename+".json"),
             "time": end_time
         }])
         write_to_CSV(df)
@@ -308,9 +307,9 @@ def _generate_rsa_signature(filename, keylen):
     signer = PKCS115_SigScheme(private_key)
     signature = signer.sign(hash)
 
-    with open(filename.rsplit('.',1)[0]+"_sig.bin", mode='wb') as sigfile:
+    with open(filename.rsplit('.',1)[0]+f"_sig_{keylen}.bin", mode='wb') as sigfile:
         sigfile.write(signature)
-    print(f"Saved signature in: {filename.rsplit('.',1)[0]+'_sig.bin'}")
+    print(f"Saved signature in: {filename.rsplit('.',1)[0]+f'_sig_{keylen}.bin'}")
 
 
 def _verify_rsa_signature(filename, signature_name, keylen):
@@ -348,8 +347,9 @@ def RSA_Signature():
         _generate_rsa_signature(filename, keylen)
         end_time = time.time() - start_time
         df = pd.DataFrame.from_records([{
-            "type": "RSA_Signature",
+            "type": "Signature",
             "keyLen": int(keylen),
+            "filesize": os.path.getsize(filename.rsplit('.',1)[0]+f"_sig_{keylen}.bin"),
             "time": end_time
         }])
         write_to_CSV(df)
@@ -357,7 +357,17 @@ def RSA_Signature():
         filename = input("Enter path to input filename: ")
         signature_name = input("Enter path to signature file: ")
         keylen = int(input("Enter keylen used to generate signature (1024, 2048 or 4096): "))
+
+        start_time = time.time()
         _verify_rsa_signature(filename, signature_name, keylen)
+        end_time = time.time() - start_time
+        df = pd.DataFrame.from_records([{
+            "type": "Signature_Verification",
+            "keyLen": int(keylen),
+            "filesize": os.path.getsize(signature_name),
+            "time": end_time
+        }])
+        write_to_CSV(df)
     
 
 def main():
@@ -396,13 +406,13 @@ def main():
     elif(objType == 4):
         SHA256()
     elif (objType == 5):
-        logtype = int(input("Choose a logging type :\n1. AES\n2. RSA\n"))
-        log = ""
+        logtype = int(input("Choose a logging type :\n1. AES\n2. RSA\n3. RSA Signature\nEnter: "))
         if(logtype == 1):
-            log = "AES"
+            plot_data("AES")
         elif(logtype == 2):
-            log == "RSA"
-        plot_data(log)
+            plot_data("RSA")
+        elif(logtype == 3):
+            plot_data("Signature")
 
 
 if __name__ == "__main__":
