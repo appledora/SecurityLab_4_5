@@ -147,14 +147,18 @@ def SHA256():
     Input : path to file for hashing
     Output: SHA256 generated hash
     """
-    filename = input("Enter the input filename: ")
+    filename = input("\nEnter the input filename to hash: ")
+    start_time = time.time()
+
     sha256_hash = hashlib.sha256()
     with open(filename,"rb") as f:
         # Read and update hash string value in blocks of 4K
         for byte_block in iter(lambda: f.read(4096), b""):
             sha256_hash.update(byte_block)
 
+    end_time = time.time() - start_time
     print(f"SHA256 Hash for {filename} : ", sha256_hash.hexdigest())
+    print(f"Completed in : {end_time} seconds.")
 
 
 
